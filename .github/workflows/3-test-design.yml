@@ -108,8 +108,12 @@ jobs:
             echo "  Max per use-case: $MAX"
             echo ""
 
-            USECASES=$(kane-cli context list --type use-case --json \
-              | jq -r 'select(.trust == "trusted") | (.ref // .id // empty)' 2>/dev/null || true)
+            if [ -f "context-list-reviewed.json" ]; then
+              USECASES=$(jq -r 'select(.label == "usecase" and .trust == "trusted") | (.ref // .id // empty)' context-list-reviewed.json 2>/dev/null || true)
+            else
+              USECASES=$(kane-cli context list --type use-case --json \
+                | jq -r 'select(.trust == "trusted") | (.ref // .id // empty)' 2>/dev/null || true)
+            fi
 
             if [ -z "$USECASES" ]; then
               echo "  No approved use-cases found"
