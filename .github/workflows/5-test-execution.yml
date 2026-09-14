@@ -58,10 +58,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Kane CLI
         run: npm install -g @testmuai/kane-cli && kane-cli --version
+
+      - name: Install HyperExecute integration
+        run: kane-cli plugin install remote-execution
+
 
       - name: Authenticate
         run: kane-cli login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY"
@@ -82,15 +86,29 @@ jobs:
           restore-keys: |
             context-tests-${{ hashFiles('docs/**') }}-
 
+      - name: Normalize development run ID
+        id: normalized-development-run
+        shell: bash
+        env:
+          RAW_DEVELOPMENT_RUN_ID: ${{ inputs.development_run_id }}
+        run: |
+          DEVELOPMENT_RUN_ID="$(printf '%s' "$RAW_DEVELOPMENT_RUN_ID" | tr -d '[:space:]')"
+          if ! [[ "$DEVELOPMENT_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::development_run_id must contain only digits"
+            exit 1
+          fi
+          echo "run_id=$DEVELOPMENT_RUN_ID" >> "$GITHUB_OUTPUT"
       - name: Download authored tests from Workflow 4
         uses: actions/download-artifact@v4
         with:
-          name: 4-test-development-${{ inputs.development_run_id }}
+          name: 4-test-development-${{ steps.normalized-development-run.outputs.run_id }}
           path: .
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.development_run_id }}
+          run-id: ${{ steps.normalized-development-run.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Configure application URL
+        run: kane-cli config set-url "${{ inputs.app_url }}"
       #  EXECUTE
       - name: "Execute: Batch replay of authored tests (local)"
         if: inputs.execution_target == 'local'
@@ -103,10 +121,7 @@ jobs:
           echo ""
           kane-cli testrun run \
             --match "${{ inputs.match_pattern }}" \
-            --url "${{ inputs.app_url }}" \
-            --headless \
-            || echo "  Some tests may have failed  check evidence packs"
-
+            --headless
       - name: "Execute: Run on HyperExecute cloud grid"
         if: inputs.execution_target == 'hyperexecute'
         run: |
@@ -118,12 +133,10 @@ jobs:
           echo ""
           kane-cli testrun run \
             --match "${{ inputs.match_pattern }}" \
-            --url "${{ inputs.app_url }}" \
-            --grid \
-            || echo "  Some tests may have failed  check evidence packs"
-
+            --remote hyper
       #  RESULTS
       - name: "Result: List evidence packs"
+        if: always()
         run: |
           echo ""
           echo ""
@@ -138,6 +151,7 @@ jobs:
           fi
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: 5-test-execution-${{ github.run_id }}
