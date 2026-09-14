@@ -118,7 +118,7 @@ jobs:
               -e "s|{{valid_listing_url}}|${BASE_URL}/rooms/ns1|g" \
               -e "s|{{invalid_listing_url}}|${BASE_URL}/rooms/not-a-real-listing|g" \
               -e 's|{listing_id}|{{listing_id}}|g' \
-              -e 's|{listingId}|{{listing_id}}|g' \
+              -e 's|{listingId}|ns1|g' \
               "$TEST_FILE"
           done < <(find .testmuai/tests -type f -name '*_test.md' -print0)
       - name: Configure StayNest test variables
