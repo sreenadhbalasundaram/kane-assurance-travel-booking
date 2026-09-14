@@ -23,3 +23,9 @@ Thumbs.db
 
 # Node
 node_modules/
+
+# HyperExecute remote replay needs authored tests and their recordings
+!.testmuai/
+.testmuai/*
+!.testmuai/tests/
+!.testmuai/tests/**
