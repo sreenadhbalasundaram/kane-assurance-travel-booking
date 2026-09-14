@@ -1,0 +1,84 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Kane CLI Assurance â€” Full STLC Demo (Local)
+#
+# Usage:
+#   ./scripts/run-demo.sh [prd-file] [source-id] [app-url]
+#
+# Example:
+#   ./scripts/run-demo.sh docs/prd-travel-booking.md prd-travel-booking https://my-testing-repo-main.vercel.app/travel-clone-app
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+PRD="${1:-docs/prd-travel-booking.md}"
+SRC="${2:-prd-travel-booking}"
+URL="${3:-https://my-testing-repo-main.vercel.app/travel-clone-app}"
+
+G='\033[0;32m' Y='\033[1;33m' C='\033[0;36m' R='\033[0;31m' N='\033[0m'
+
+phase() {
+  echo ""
+  echo -e "${C}â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”${N}"
+  echo -e "${G}  Phase $1: $2${N}"
+  echo -e "${C}â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”${N}"
+}
+
+echo -e "${Y}Kane CLI Assurance â€” Full STLC Demo${N}"
+echo "PRD: $PRD | Source: $SRC | App: $URL"
+
+# â”€â”€ Phase 1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+phase 1 "Requirements Analysis (ingest + extract)"
+kane-cli context ingest "./$PRD" --as "$SRC" --mode ci
+kane-cli context extract --mode override --source "$SRC"
+echo "" && kane-cli context list
+
+# â”€â”€ Phase 2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+phase 2 "Test Planning (review + gaps)"
+kane-cli context review --approve-all --mode ci 2>/dev/null || true
+echo "" && kane-cli cover gaps --stage design 2>/dev/null || echo -e "${Y}No gaps yet${N}"
+
+# â”€â”€ Phase 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+phase 3 "Test Design (design tests)"
+for UC in $(kane-cli context list --type use-case --trust trusted --json | jq -r '.[].ref // empty' 2>/dev/null); do
+  echo -e "  ${C}Designing: $UC${N}"
+  kane-cli design tests --use-case "$UC" --mode override --max 5 || true
+done
+kane-cli context review --approve-all --mode ci 2>/dev/null || true
+echo "" && find .testmuai/tests -name '*_test.md' 2>/dev/null | sort || echo "No test files"
+
+# â”€â”€ Phase 4 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+phase 4 "Test Development (author first 3 tests)"
+for TEST in $(find .testmuai/tests -name '*_test.md' 2>/dev/null | head -3); do
+  echo -e "  ${C}Authoring: $(basename $TEST)${N}"
+  kane-cli testmd run "$TEST" --url "$URL" --headless || true
+done
+
+# â”€â”€ Phase 5 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+phase 5 "Test Execution (batch replay)"
+kane-cli testrun run --match 't-' --url "$URL" --headless || true
+
+# â”€â”€ Phase 6 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+phase 6 "Coverage & Reporting"
+kane-cli cover 2>/dev/null || echo -e "${Y}No evidence packs yet${N}"
+echo "" && kane-cli cover gaps 2>/dev/null || echo -e "${Y}No gaps${N}"
+
+# â”€â”€ Save outputs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+kane-cli cover --json > coverage.json 2>/dev/null || true
+kane-cli cover gaps --json > coverage-gaps.json 2>/dev/null || true
+kane-cli context view --output context-graph.html 2>/dev/null || true
+
+echo ""
+echo -e "${C}â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”${N}"
+echo -e "${G}  Demo complete${N}"
+echo -e "${C}â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”${N}"
+echo ""
+echo "Outputs:"
+echo "  context-graph.html  â€” open in browser"
+echo "  coverage.json       â€” machine-readable"
+echo "  coverage-gaps.json  â€” ranked gaps"
+echo ""
+echo -e "${Y}Phase 7 (Maintenance):${N}"
+echo "  ./scripts/run-demo.sh docs/prd-travel-booking-v2.md prd-travel-booking $URL"
+echo "  This will reconcile the PRD change and show stale markers"
+
