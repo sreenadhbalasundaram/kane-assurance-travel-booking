@@ -15,11 +15,8 @@ name: "1 - Requirements Analysis"
 #   - Ambiguities are surfaced, not silently guessed
 #   - The output is structured, not a wall of text
 #
-# Runs on: self-hosted Windows runner, PowerShell
-# Prerequisites on your Windows machine:
-#   1. Self-hosted runner configured and running (.\run.cmd)
-#   2. Node.js 24+ installed and in PATH
-#   3. Kane CLI: npm install -g @testmuai/kane-cli
+# Runs on: GitHub-hosted Ubuntu runner, PowerShell Core
+# Prerequisites are installed by this workflow on the GitHub-hosted runner
 # ---------------------------------------------------------
 
 on:
@@ -47,15 +44,20 @@ env:
 jobs:
   requirements-analysis:
     name: Ingest & Extract
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     defaults:
       run:
-        shell: powershell
+        shell: pwsh
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: "Setup - Verify prerequisites"
         run: |
