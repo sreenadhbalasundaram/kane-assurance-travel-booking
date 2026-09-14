@@ -81,7 +81,7 @@ jobs:
           cat /tmp/all-items.json | jq '.' 2>/dev/null || cat /tmp/all-items.json
 
           # Build verdicts: approve everything that has a ref field
-          jq '[.[] | select(.ref != null) | {ref: .ref, resolution: "approved"}]' /tmp/all-items.json > /tmp/verdicts.json 2>/dev/null || echo "[]" > /tmp/verdicts.json
+          jq -s '[.[] | select(.trust == "derived") | {ref: (.ref // .id // .slug // .name), resolution: "approved"}]' /tmp/all-items.json > /tmp/verdicts.json 2>/dev/null || echo "[]" > /tmp/verdicts.json
 
           ITEM_COUNT=$(jq 'length' /tmp/verdicts.json 2>/dev/null || echo "0")
 
