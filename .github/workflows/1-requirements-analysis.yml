@@ -130,6 +130,7 @@ jobs:
           kane-cli context view --output context-graph.html 2>$null
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Graph visualization not available"
+            exit 0
           }
 
       - name: "Upload artifacts"
