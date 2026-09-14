@@ -61,7 +61,7 @@ jobs:
           path: |
             .context/
             .testmuai/
-          key: context-tests-${{ hashFiles('docs/**') }}-${{ github.run_number }}
+          key: context-tests-${{ hashFiles('docs/**') }}-${{ github.run_id }}
           restore-keys: |
             context-tests-${{ hashFiles('docs/**') }}-
 
@@ -124,7 +124,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 6-coverage-report-${{ github.run_number }}
+          name: 6-coverage-report-${{ github.run_id }}
           retention-days: 30
           path: |
             coverage.json

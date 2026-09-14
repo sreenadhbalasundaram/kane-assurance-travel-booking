@@ -78,7 +78,7 @@ jobs:
           path: |
             .context/
             .testmuai/
-          key: context-tests-${{ hashFiles('docs/**') }}-${{ github.run_number }}
+          key: context-tests-${{ hashFiles('docs/**') }}-${{ github.run_id }}
           restore-keys: |
             context-tests-${{ hashFiles('docs/**') }}-
 

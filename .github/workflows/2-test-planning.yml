@@ -57,7 +57,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .context/
-          key: context-${{ hashFiles('docs/**') }}-${{ github.run_number }}
+          key: context-${{ hashFiles('docs/**') }}-${{ github.run_id }}
           restore-keys: context-${{ hashFiles('docs/**') }}-
 
       #  SHOW CURRENT STATE
@@ -140,7 +140,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 2-test-planning-${{ github.run_number }}
+          name: 2-test-planning-${{ github.run_id }}
           retention-days: 30
           path: |
             context-list-reviewed.json

@@ -23,6 +23,9 @@ name: "3 - Test Design"
 on:
   workflow_dispatch:
     inputs:
+      planning_run_id:
+        description: 'Workflow 2 run ID containing the approved context artifact'
+        required: true
       use_case:
         description: 'Specific use-case ref (blank = design all approved use-cases)'
         required: false
@@ -40,6 +43,10 @@ on:
 env:
   LT_USERNAME: ${{ secrets.LT_USERNAME }}
   LT_ACCESS_KEY: ${{ secrets.LT_ACCESS_KEY }}
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   test-design:
@@ -67,8 +74,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .context/
-          key: context-${{ hashFiles('docs/**') }}-${{ github.run_number }}
+          key: context-${{ hashFiles('docs/**') }}-${{ github.run_id }}
           restore-keys: context-${{ hashFiles('docs/**') }}-
+
+      - name: Download reviewed context from Workflow 2
+        uses: actions/download-artifact@v4
+        with:
+          name: 2-test-planning-${{ inputs.planning_run_id }}
+          path: .
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.planning_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       #  DESIGN
       - name: "Design: Generate tests from approved use-cases"

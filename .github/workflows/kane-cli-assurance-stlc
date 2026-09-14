@@ -129,7 +129,7 @@ jobs:
           path: |
             .context/
             .testmuai/
-          key: stlc-context-${{ inputs.source_id }}-${{ github.run_number }}
+          key: stlc-context-${{ inputs.source_id }}-${{ github.run_id }}
           restore-keys: |
             stlc-context-${{ inputs.source_id }}-
 
@@ -503,7 +503,7 @@ jobs:
           path: |
             .context/
             .testmuai/
-          key: stlc-context-${{ inputs.source_id }}-${{ github.run_number }}
+          key: stlc-context-${{ inputs.source_id }}-${{ github.run_id }}
 
       - name: "Summary"
         if: always()
@@ -517,7 +517,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stlc-phase-${{ inputs.phases }}-${{ github.run_number }}
+          name: stlc-phase-${{ inputs.phases }}-${{ github.run_id }}
           retention-days: 30
           path: |
             coverage.json

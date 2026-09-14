@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .context/
-          key: context-${{ hashFiles('docs/**') }}-${{ github.run_number }}
+          key: context-${{ hashFiles('docs/**') }}-${{ github.run_id }}
           restore-keys: context-${{ hashFiles('docs/**') }}-
 
       # -- INGEST ---------------------------------------------
@@ -137,7 +137,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 1-requirements-analysis-${{ github.run_number }}
+          name: 1-requirements-analysis-${{ github.run_id }}
           retention-days: 30
           path: |
             context-list.json

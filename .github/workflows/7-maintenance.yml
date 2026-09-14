@@ -82,7 +82,7 @@ jobs:
           path: |
             .context/
             .testmuai/
-          key: context-tests-${{ hashFiles('docs/**') }}-${{ github.run_number }}
+          key: context-tests-${{ hashFiles('docs/**') }}-${{ github.run_id }}
           restore-keys: |
             context-tests-${{ hashFiles('docs/**') }}-
 
@@ -191,7 +191,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 7-maintenance-${{ github.run_number }}
+          name: 7-maintenance-${{ github.run_id }}
           retention-days: 30
           path: |
             context-before.json
