@@ -107,6 +107,20 @@ jobs:
           run-id: ${{ steps.normalized-development-run.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Normalize StayNest route placeholders
+        shell: bash
+        env:
+          APP_URL: ${{ inputs.app_url }}
+        run: |
+          BASE_URL="${APP_URL%/}"
+          while IFS= read -r -d '' TEST_FILE; do
+            sed -i \
+              -e "s|{{valid_listing_url}}|${BASE_URL}/rooms/ns1|g" \
+              -e "s|{{invalid_listing_url}}|${BASE_URL}/rooms/not-a-real-listing|g" \
+              -e 's|{listing_id}|{{listing_id}}|g' \
+              -e 's|{listingId}|{{listing_id}}|g' \
+              "$TEST_FILE"
+          done < <(find .testmuai/tests -type f -name '*_test.md' -print0)
       - name: Configure StayNest test variables
         shell: bash
         env:
