@@ -31,6 +31,9 @@ on:
         description: 'Specific test file (blank = author all designed tests)'
         required: false
         default: ''
+      design_run_id:
+        description: 'Workflow 3 run ID containing the designed test artifact'
+        required: true
       max_tests:
         description: 'Max number of tests to author in this run'
         required: true
@@ -39,6 +42,10 @@ on:
 env:
   LT_USERNAME: ${{ secrets.LT_USERNAME }}
   LT_ACCESS_KEY: ${{ secrets.LT_ACCESS_KEY }}
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   test-development:
@@ -74,6 +81,15 @@ jobs:
           restore-keys: |
             context-tests-${{ hashFiles('docs/**') }}-
             context-${{ hashFiles('docs/**') }}-
+
+      - name: Download designed tests from Workflow 3
+        uses: actions/download-artifact@v4
+        with:
+          name: 3-test-design-${{ inputs.design_run_id }}
+          path: .
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.design_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       #  AUTHOR TESTS
       - name: "Author: Run designed tests in a real browser"
@@ -132,9 +148,8 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 4-test-development-${{ github.run_number }}
+          name: 4-test-development-${{ github.run_id }}
           retention-days: 30
           path: |
             .testmuai/
             .context/
-

@@ -22,6 +22,9 @@ name: "5 - Test Execution"
 on:
   workflow_dispatch:
     inputs:
+      development_run_id:
+        description: 'Workflow 4 run ID containing the authored test artifact'
+        required: true
       app_url:
         description: 'URL of the StayNest app to test against'
         required: true
@@ -40,6 +43,10 @@ on:
 env:
   LT_USERNAME: ${{ secrets.LT_USERNAME }}
   LT_ACCESS_KEY: ${{ secrets.LT_ACCESS_KEY }}
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   test-execution:
@@ -74,6 +81,15 @@ jobs:
           key: context-tests-${{ hashFiles('docs/**') }}-${{ github.run_number }}
           restore-keys: |
             context-tests-${{ hashFiles('docs/**') }}-
+
+      - name: Download authored tests from Workflow 4
+        uses: actions/download-artifact@v4
+        with:
+          name: 4-test-development-${{ inputs.development_run_id }}
+          path: .
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.development_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       #  EXECUTE
       - name: "Execute: Batch replay of authored tests (local)"
@@ -124,7 +140,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 5-test-execution-${{ github.run_number }}
+          name: 5-test-execution-${{ github.run_id }}
           retention-days: 30
           path: |
             .testmuai/evidence/

@@ -178,7 +178,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 3-test-design-${{ github.run_number }}
+          name: 3-test-design-${{ github.run_id }}
           retention-days: 30
           path: |
             context-list-designed.json
