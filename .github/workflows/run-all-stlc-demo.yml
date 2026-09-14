@@ -53,6 +53,12 @@ on:
         description: 'Max tests per use-case (number only)'
         required: true
         default: '3'
+      project_id:
+        description: 'Test Manager project ID for authored cases and replay evidence'
+        required: true
+      folder_id:
+        description: 'Test Manager folder ID inside the selected project'
+        required: true
       target_usecase:
         description: 'Phase 3 only: design ONE use-case (e.g. uc-1). Blank = all use-cases (can take 30-40+ min for a full PRD - use one use-case for live demos)'
         required: false
@@ -123,9 +129,21 @@ jobs:
       #     kane-cli --version
       #     kane-cli install skill || echo "Skill install skipped"
 
-      # - name: "Setup - Authenticate"
-      #   run: |
-      #     kane-cli login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY" || true
+      - name: "Setup - Authenticate"
+        run: |
+          kane-cli login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY"
+
+      - name: "Setup - Configure Test Manager destination"
+        run: |
+          if [ -z "${{ inputs.project_id }}" ] || [ -z "${{ inputs.folder_id }}" ]; then
+            echo "ERROR: project_id and folder_id are required"
+            exit 1
+          fi
+          kane-cli config project "${{ inputs.project_id }}"
+          if [ $? -ne 0 ]; then exit 1; fi
+          kane-cli config folder "${{ inputs.folder_id }}"
+          if [ $? -ne 0 ]; then exit 1; fi
+          echo "Test Manager project: https://test-manager.lambdatest.com/projects/${{ inputs.project_id }}"
 
       - name: "Setup - Validate max_tests is numeric"
         if: inputs.phases == 'all' || inputs.phases == '3'
@@ -603,10 +621,22 @@ jobs:
       - name: "Summary"
         if: always()
         run: |
+          PROJECT_URL="https://test-manager.lambdatest.com/projects/${{ inputs.project_id }}"
+          RUNS_URL="$PROJECT_URL/test-runs"
           echo ""
           echo "================================================"
           echo "  Run complete: phase ${{ inputs.phases }}"
           echo "================================================"
+          echo "Test Manager project: $PROJECT_URL"
+          echo "Test Manager test runs: $RUNS_URL"
+          {
+            echo "# StayNest test execution links"
+            echo ""
+            echo "- Test Manager project: $PROJECT_URL"
+            echo "- Test Manager test runs: $RUNS_URL"
+            echo ""
+            echo "Open the test-runs link to access the generated run and its evidence."
+          } > test-manager-links.md
 
       - name: "Upload artifacts"
         if: always()
@@ -619,6 +649,7 @@ jobs:
             coverage.json
             coverage-gaps.json
             context-graph.html
+            test-manager-links.md
             all-items.json
             verdicts.json
             graph.json

@@ -52,6 +52,12 @@ on:
         description: 'Max tests per use-case (number only)'
         required: true
         default: '3'
+      project_id:
+        description: 'Test Manager project ID for authored cases and replay evidence'
+        required: true
+      folder_id:
+        description: 'Test Manager folder ID inside the selected project'
+        required: true
       v2_prd:
         description: 'Updated PRD for phase 7 maintenance demo'
         required: true
@@ -93,6 +99,20 @@ jobs:
       - name: "Setup - Authenticate"
         run: |
           kane-cli login --username "${{ secrets.LT_USERNAME }}" --access-key "${{ secrets.LT_ACCESS_KEY }}"
+
+      - name: "Setup - Configure Test Manager destination"
+        run: |
+          $project = "${{ inputs.project_id }}"
+          $folder = "${{ inputs.folder_id }}"
+          if ([string]::IsNullOrWhiteSpace($project) -or [string]::IsNullOrWhiteSpace($folder)) {
+            Write-Host "ERROR: project_id and folder_id are required" -ForegroundColor Red
+            exit 1
+          }
+          kane-cli config project $project
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          kane-cli config folder $folder
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "Test Manager project: https://test-manager.lambdatest.com/projects/$project"
 
       - name: "Setup - Validate max_tests is numeric"
         if: inputs.phases == 'all' || inputs.phases == '3'
@@ -508,10 +528,23 @@ jobs:
       - name: "Summary"
         if: always()
         run: |
+          $project = "${{ inputs.project_id }}"
+          $projectUrl = "https://test-manager.lambdatest.com/projects/$project"
+          $runsUrl = "$projectUrl/test-runs"
           Write-Host ""
           Write-Host "================================================" -ForegroundColor Cyan
           Write-Host "  Run complete: phase ${{ inputs.phases }}" -ForegroundColor Green
           Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "Test Manager project: $projectUrl" -ForegroundColor Yellow
+          Write-Host "Test Manager test runs: $runsUrl" -ForegroundColor Yellow
+          @(
+            "# StayNest test execution links",
+            "",
+            "- Test Manager project: $projectUrl",
+            "- Test Manager test runs: $runsUrl",
+            "",
+            "Open the test-runs link to access the generated run and its evidence."
+          ) | Set-Content -Path "test-manager-links.md" -Encoding utf8
 
       - name: "Upload artifacts"
         if: always()
@@ -524,6 +557,7 @@ jobs:
             coverage.json
             coverage-gaps.json
             context-graph.html
+            test-manager-links.md
             all-items.json
             verdicts.json
             graph.json

@@ -39,6 +39,12 @@ on:
         default: 'local'
         type: choice
         options: [local, hyperexecute]
+      project_id:
+        description: 'Test Manager project ID containing the authored cases'
+        required: true
+      folder_id:
+        description: 'Test Manager folder ID used when cases were authored'
+        required: true
 
 env:
   LT_USERNAME: ${{ secrets.LT_USERNAME }}
@@ -69,6 +75,21 @@ jobs:
 
       - name: Authenticate
         run: kane-cli login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY"
+
+      - name: Configure Test Manager destination
+        shell: bash
+        env:
+          KANE_PROJECT_ID: ${{ inputs.project_id }}
+          KANE_FOLDER_ID: ${{ inputs.folder_id }}
+        run: |
+          if [ -z "$KANE_PROJECT_ID" ] || [ -z "$KANE_FOLDER_ID" ]; then
+            echo "::error::project_id and folder_id are required"
+            exit 1
+          fi
+          kane-cli config project "$KANE_PROJECT_ID"
+          kane-cli config folder "$KANE_FOLDER_ID"
+          echo "Test Manager project: https://test-manager.lambdatest.com/projects/$KANE_PROJECT_ID"
+          echo "Replay evidence is published to the project of the authored test cases."
 
       - name: Install Google Chrome
         if: inputs.execution_target == 'local'
@@ -133,6 +154,11 @@ jobs:
       - name: Configure application URL
         run: kane-cli config set-url "${{ inputs.app_url }}"
       #  EXECUTE
+      - name: Mark execution start
+        id: execution-clock
+        shell: bash
+        run: echo "started_at=$(date -u +%s)" >> "$GITHUB_OUTPUT"
+
       - name: "Execute: Batch replay of authored tests (local)"
         if: inputs.execution_target == 'local'
         run: |
@@ -142,9 +168,12 @@ jobs:
           echo "  Pattern: ${{ inputs.match_pattern }}"
           echo ""
           echo ""
+          set +e
           kane-cli testrun run \
             --match "${{ inputs.match_pattern }}" \
-            --headless
+            --headless 2>&1 | tee testrun-output.ndjson
+          status=${PIPESTATUS[0]}
+          exit "$status"
       - name: "Execute: Run on HyperExecute cloud grid"
         if: inputs.execution_target == 'hyperexecute'
         run: |
@@ -154,9 +183,12 @@ jobs:
           echo "  Pattern: ${{ inputs.match_pattern }}"
           echo ""
           echo ""
+          set +e
           kane-cli testrun run \
             --match "${{ inputs.match_pattern }}" \
-            --remote hyper
+            --remote hyper 2>&1 | tee testrun-output.ndjson
+          status=${PIPESTATUS[0]}
+          exit "$status"
       #  RESULTS
       - name: "Result: List evidence packs"
         if: always()
@@ -173,6 +205,89 @@ jobs:
             echo "No evidence packs found"
           fi
 
+      - name: "Result: Publish Test Manager links"
+        if: always()
+        shell: bash
+        env:
+          PROJECT_ID: ${{ inputs.project_id }}
+        run: |
+          PROJECT_URL="https://test-manager.lambdatest.com/projects/$PROJECT_ID"
+          RUNS_URL="$PROJECT_URL/test-runs"
+          EVIDENCE_ID=""
+          HYPER_URL=""
+          TEST_MANAGER_RUN_ID=""
+          TEST_MANAGER_RUN_URL=""
+          TEST_MANAGER_EVIDENCE_URL=""
+
+          if [ -f testrun-output.ndjson ]; then
+            EVIDENCE_ID=$(jq -r 'select(.type == "testrun_evidence_ingest") | .evidence_id // empty' testrun-output.ndjson 2>/dev/null | tail -1)
+            HYPER_URL=$(jq -r 'select(.type == "testrun_summary") | .remote.jobUrl // empty' testrun-output.ndjson 2>/dev/null | tail -1)
+          fi
+
+          # testrun emits the evidence ID but not the Test Manager batch-run ID.
+          # The official Test Manager API lets us resolve the newest run created
+          # during this job, so the generated link points to the actual run.
+          TMS_RUNS_API="https://test-manager-api.lambdatest.com/api/v1/projects/$PROJECT_ID/test-runs?per_page=100"
+          if [ -n "$EVIDENCE_ID" ] && curl --fail --silent --show-error --retry 2 \
+              --user "$LT_USERNAME:$LT_ACCESS_KEY" \
+              "$TMS_RUNS_API" -o test-manager-runs.json 2>test-manager-api-error.log; then
+            STARTED_AT="${{ steps.execution-clock.outputs.started_at }}"
+            TEST_MANAGER_RUN_ID=$(jq -r --argjson started "$STARTED_AT" '
+              [.data[]? | select(.created_at != null) |
+               . + {created_epoch: (.created_at | fromdateiso8601)} |
+               select(.created_epoch >= $started)] |
+              sort_by(.created_epoch) | last | .id // empty
+            ' test-manager-runs.json 2>/dev/null)
+          else
+            echo "Test Manager run lookup failed; see test-manager-api-error.log in the artifact."
+          fi
+
+          if [ -n "$TEST_MANAGER_RUN_ID" ]; then
+            TEST_MANAGER_RUN_URL="$PROJECT_URL/test-run/$TEST_MANAGER_RUN_ID"
+            if [ -n "$EVIDENCE_ID" ]; then
+              TEST_MANAGER_EVIDENCE_URL="$TEST_MANAGER_RUN_URL/evidence?evidenceId=$EVIDENCE_ID"
+            fi
+          fi
+
+          {
+            echo "# StayNest test execution links"
+            echo ""
+            echo "- Test Manager project: $PROJECT_URL"
+            echo "- Test Manager test runs: $RUNS_URL"
+            if [ -n "$TEST_MANAGER_RUN_URL" ]; then
+              echo "- Test Manager run: $TEST_MANAGER_RUN_URL"
+            fi
+            if [ -n "$TEST_MANAGER_EVIDENCE_URL" ]; then
+              echo "- Test Manager evidence: $TEST_MANAGER_EVIDENCE_URL"
+            fi
+            if [ -n "$EVIDENCE_ID" ]; then
+              echo "- Evidence ID: $EVIDENCE_ID"
+            fi
+            if [ -n "$HYPER_URL" ]; then
+              echo "- HyperExecute job: $HYPER_URL"
+            fi
+            echo ""
+            if [ -z "$TEST_MANAGER_RUN_URL" ]; then
+              echo "The Test Manager run ID could not be resolved automatically. Open the test-runs link above to access the generated run."
+            else
+              echo "The evidence link uses the evidence ID returned by Kane CLI; Test Manager may append a time-limited signed pack URL when opened."
+            fi
+            echo ""
+            echo "## Authored test cases"
+            found=0
+            for result in .testmuai/evidence/*/result.yaml; do
+              [ -f "$result" ] || continue
+              testcase_id=$(awk '$1 == "testcase_id:" {print $2; exit}' "$result")
+              [ -n "$testcase_id" ] || continue
+              testcase_url="$PROJECT_URL/test-cases/$testcase_id"
+              echo "- [$testcase_id]($testcase_url)"
+              found=1
+            done
+            if [ "$found" -eq 0 ]; then
+              echo "- No test-case IDs were found in the local evidence packs."
+            fi
+          } | tee test-manager-links.md
+
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -183,4 +298,8 @@ jobs:
           path: |
             .testmuai/evidence/
             .context/
+            testrun-output.ndjson
+            test-manager-runs.json
+            test-manager-api-error.log
+            test-manager-links.md
 

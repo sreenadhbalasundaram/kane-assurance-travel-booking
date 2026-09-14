@@ -1,4 +1,4 @@
-﻿# Kane CLI Assurance — StayNest Travel Booking Demo
+# Kane CLI Assurance — StayNest Travel Booking Demo
 
 A ready-to-fork assurance project that maps Kane CLI Assurance to the Software Testing Lifecycle for the StayNest travel booking journey.
 
@@ -44,6 +44,24 @@ kane-cli login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY"
 ## GitHub Actions
 
 Add `LT_USERNAME` and `LT_ACCESS_KEY` under repository Actions secrets. Optional Vercel secrets are only needed if you want workflow 0 to deploy the local mock. Run workflow 1 first, approve the derived use-cases in workflow 2, then design and author tests before batch execution.
+
+### Test Manager destination and execution links
+
+Workflows 4 and 5, plus both combined self-hosted workflows, require these manual inputs:
+
+- `project_id`: the destination Test Manager project ID
+- `folder_id`: a folder ID that belongs to that project
+
+Run workflow 4 with the destination IDs first. This uploads the authored test cases into that project/folder. Then pass the same IDs to workflow 5; replay evidence follows the project of those authored cases. Supplying the IDs to workflow 5 does not move test cases that were authored earlier in another project, so those cases must be authored again in workflow 4.
+
+After workflow 5 completes, the job summary and the `test-manager-links.md` artifact contain:
+
+- the Test Manager project and test-runs list;
+- the actual Test Manager run URL, resolved through the official Test Manager API;
+- an evidence URL built from the returned evidence ID;
+- the HyperExecute job URL when HyperExecute was selected.
+
+The evidence URL intentionally does not include the signed `pack` query parameter shown in the Test Manager UI. That parameter is time-limited; opening the run/evidence link in Test Manager generates or appends the current signed pack URL.
 
 The maintenance demo uses `docs/prd-travel-booking-v2.md` after the v1 graph and suite have been created.
 

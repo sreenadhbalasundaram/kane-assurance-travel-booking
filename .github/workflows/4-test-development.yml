@@ -38,6 +38,12 @@ on:
         description: 'Max number of tests to author in this run'
         required: true
         default: '3'
+      project_id:
+        description: 'Test Manager project ID where authored cases are stored'
+        required: true
+      folder_id:
+        description: 'Test Manager folder ID inside the selected project'
+        required: true
 
 env:
   LT_USERNAME: ${{ secrets.LT_USERNAME }}
@@ -64,6 +70,20 @@ jobs:
 
       - name: Authenticate
         run: kane-cli login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY"
+
+      - name: Configure Test Manager destination
+        shell: bash
+        env:
+          KANE_PROJECT_ID: ${{ inputs.project_id }}
+          KANE_FOLDER_ID: ${{ inputs.folder_id }}
+        run: |
+          if [ -z "$KANE_PROJECT_ID" ] || [ -z "$KANE_FOLDER_ID" ]; then
+            echo "::error::project_id and folder_id are required"
+            exit 1
+          fi
+          kane-cli config project "$KANE_PROJECT_ID"
+          kane-cli config folder "$KANE_FOLDER_ID"
+          echo "Test Manager project: https://test-manager.lambdatest.com/projects/$KANE_PROJECT_ID"
 
       - name: Install Google Chrome
         run: |
@@ -146,6 +166,7 @@ jobs:
           fi
 
       - name: "Result: Show authored test evidence"
+        if: always()
         run: |
           echo ""
           echo ""
@@ -156,6 +177,10 @@ jobs:
           else
             echo "No evidence packs generated yet"
           fi
+
+          echo ""
+          echo "Test Manager project: https://test-manager.lambdatest.com/projects/${{ inputs.project_id }}"
+          echo "Test Manager test runs: https://test-manager.lambdatest.com/projects/${{ inputs.project_id }}/test-runs"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
