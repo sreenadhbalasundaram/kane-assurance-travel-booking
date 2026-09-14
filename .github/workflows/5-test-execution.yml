@@ -142,6 +142,7 @@ jobs:
         with:
           name: 5-test-execution-${{ github.run_id }}
           retention-days: 30
+          include-hidden-files: true
           path: |
             .testmuai/evidence/
             .context/

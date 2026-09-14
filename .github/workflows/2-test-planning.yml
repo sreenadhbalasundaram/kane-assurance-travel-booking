@@ -142,6 +142,7 @@ jobs:
         with:
           name: 2-test-planning-${{ github.run_id }}
           retention-days: 30
+          include-hidden-files: true
           path: |
             context-list-reviewed.json
             design-gaps.json

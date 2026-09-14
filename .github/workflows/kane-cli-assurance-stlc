@@ -519,6 +519,7 @@ jobs:
         with:
           name: stlc-phase-${{ inputs.phases }}-${{ github.run_id }}
           retention-days: 30
+          include-hidden-files: true
           path: |
             coverage.json
             coverage-gaps.json

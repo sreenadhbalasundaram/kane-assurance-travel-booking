@@ -193,6 +193,7 @@ jobs:
         with:
           name: 7-maintenance-${{ github.run_id }}
           retention-days: 30
+          include-hidden-files: true
           path: |
             context-before.json
             context-after.json
