@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Kane CLI
         run: npm install -g @testmuai/kane-cli && kane-cli --version
@@ -82,13 +82,25 @@ jobs:
             context-tests-${{ hashFiles('docs/**') }}-
             context-${{ hashFiles('docs/**') }}-
 
+      - name: Normalize design run ID
+        id: normalized-design-run
+        shell: bash
+        env:
+          RAW_DESIGN_RUN_ID: ${{ inputs.design_run_id }}
+        run: |
+          DESIGN_RUN_ID="$(printf '%s' "$RAW_DESIGN_RUN_ID" | tr -d '[:space:]')"
+          if ! [[ "$DESIGN_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::design_run_id must contain only digits"
+            exit 1
+          fi
+          echo "run_id=$DESIGN_RUN_ID" >> "$GITHUB_OUTPUT"
       - name: Download designed tests from Workflow 3
         uses: actions/download-artifact@v4
         with:
-          name: 3-test-design-${{ inputs.design_run_id }}
+          name: 3-test-design-${{ steps.normalized-design-run.outputs.run_id }}
           path: .
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.design_run_id }}
+          run-id: ${{ steps.normalized-design-run.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       #  AUTHOR TESTS
