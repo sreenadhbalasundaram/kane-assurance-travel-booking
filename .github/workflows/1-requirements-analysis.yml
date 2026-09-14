@@ -64,7 +64,7 @@ jobs:
           Write-Host "-- Checking prerequisites --" -ForegroundColor Cyan
           Write-Host "Node: $(node --version 2>$null)"
           Write-Host "npm: $(npm --version 2>$null)"
-          Write-Host "Kane CLI: $(kane-cli --version 2>$null)"
+          Write-Host "Kane CLI: will be installed in the next step"
           Write-Host ""
 
       - name: "Setup - Install Kane CLI"
