@@ -143,10 +143,14 @@ jobs:
         timeout-minutes: 60
         run: |
           kane-cli context list --type usecase --json > graph.json
-          jq -s -r '.[] | (.ref // .id // .slug // empty)' graph.json > usecases.txt
+          # Display IDs can be abbreviated hashes after maintenance versions a UC.
+          # The full CID is accepted by both cover gaps and design tests.
+          jq -s -r '.[] | (.cid // .ref // .id // .slug // empty)' graph.json > usecases.txt
           test -s usecases.txt || { echo "::error::No use-cases. Complete phases 1 and 2 first."; exit 1; }
           if [ -n "$TARGET_USECASE" ]; then
-            grep -Fx -- "$TARGET_USECASE" usecases.txt > selected-usecases.txt || {
+            kane-cli context explain "$TARGET_USECASE" --json > target-usecase.json
+            jq -r '.target.tip // .target.cid // empty' target-usecase.json > target-usecase.txt
+            grep -Fx -f target-usecase.txt usecases.txt > selected-usecases.txt || {
               echo "::error::Requested use-case was not found"; exit 1;
             }
           else
@@ -155,7 +159,9 @@ jobs:
           failed=0
           while IFS= read -r uc; do
             kane-cli cover gaps "$uc" --json > design-status.json
-            if jq -e --arg uc "$uc" '.usecases[] | select(.id == $uc) | select(.design_completeness.status == "complete" and .stale_acs == 0)' design-status.json >/dev/null; then
+            # This dossier is scoped to one UC; its human ID may differ from
+            # the full CID supplied above.
+            if jq -e '.usecases | length == 1 and (.[0].design_completeness.status == "complete" and .[0].stale_acs == 0)' design-status.json >/dev/null; then
               echo "Reusing complete, current design for $uc"
               continue
             fi
