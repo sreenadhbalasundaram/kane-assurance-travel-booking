@@ -65,6 +65,26 @@ The evidence URL intentionally does not include the signed `pack` query paramete
 
 The maintenance demo uses `docs/prd-travel-booking-v2.md` after the v1 graph and suite have been created.
 
+### Full demo on an Apple Silicon Mac
+
+Register a repository runner with labels `self-hosted`, `macOS`, `ARM64`, and
+`kane-stlc-demo`, then start `./run.sh` as the signed-in desktop user. Install
+Node 24+, jq, Kane CLI, and Google Chrome in `/Applications` first.
+
+The combined workflow uses macOS Bash and preserves `.context/` and `.testmuai/`
+between runs. It reuses complete, current designs and reports command failures
+as job failures. The default `test_match` selects up to three browser smoke tests
+for browsing at 320px, selected-listing navigation, and Reserve navigation.
+Authoring and replay use the same sorted selection. This is a demo slice, not
+full-suite validation; coverage reports show the remaining debt. Change
+`test_match` to select other generated files (`.*` considers all candidates,
+still capped at three). Public demo fixtures are filled only when missing.
+
+Kane CLI 0.8.20 failed to execute the generated relative-URL booking API requests
+during validation. Those tests remain in the assurance store and their failure
+evidence remains available; passing the browser smoke slice does not establish
+the API's negative-path behavior.
+
 ## Repository structure
 
 ```text
