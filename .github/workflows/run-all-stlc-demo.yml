@@ -193,6 +193,9 @@ jobs:
           find .testmuai/tests -name '*_test.md' -print | sort > available-tests.txt
           grep -E -- "$TEST_MATCH" available-tests.txt | head -n 3 > selected-tests.txt
           test -s selected-tests.txt || { echo "::error::No tests to author"; exit 1; }
+          # Start at the required mobile width; the browser agent cannot resize
+          # its viewport reliably from a natural-language step in CLI 0.8.20.
+          kane-cli config set-window 320x1080
           failed=0
           while IFS= read -r test_file; do
             rc=0
@@ -217,6 +220,7 @@ jobs:
           [ "${#tests[@]}" -gt 0 ] || { echo "::error::No tests selected"; exit 1; }
           # Existing test frontmatter URLs override this configured fallback.
           kane-cli config set-url "$APP_URL"
+          kane-cli config set-window 320x1080
           kane-cli testrun run "${tests[@]}" < /dev/null
 
       - name: Phase 6 - Coverage and reporting
