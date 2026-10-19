@@ -39,6 +39,10 @@ on:
         description: Updated PRD for maintenance
         required: true
         default: docs/prd-travel-booking-v2.md
+      test_match:
+        description: Regex selecting the three-test browser demo slice (use .* for all candidates)
+        required: true
+        default: 'homes-remain|selected-homes|reserve-navigates'
 
 permissions:
   contents: read
@@ -60,6 +64,7 @@ env:
   FOLDER_ID: ${{ inputs.folder_id }}
   TARGET_USECASE: ${{ inputs.target_usecase }}
   V2_PRD: ${{ inputs.v2_prd }}
+  TEST_MATCH: ${{ inputs.test_match }}
 
 jobs:
   stlc-demo:
@@ -149,6 +154,11 @@ jobs:
           fi
           failed=0
           while IFS= read -r uc; do
+            kane-cli cover gaps "$uc" --json > design-status.json
+            if jq -e --arg uc "$uc" '.usecases[] | select(.id == $uc) | select(.design_completeness.status == "complete" and .stale_acs == 0)' design-status.json >/dev/null; then
+              echo "Reusing complete, current design for $uc"
+              continue
+            fi
             rc=0
             kane-cli design tests --use-case "$uc" --mode override --max "$MAX_TESTS" --allow-unreviewed || rc=$?
             if [ "$rc" -ne 0 ]; then
@@ -171,13 +181,17 @@ jobs:
           find .testmuai/tests -name '*_test.md' -print
           echo "Fill required variables locally before browser execution; values are never printed here."
 
+      - name: Prepare public demo fixtures
+        if: (inputs.phases == 'all' || inputs.phases == '3' || inputs.phases == '4' || inputs.phases == '5')
+        run: node scripts/prepare-demo-variables.cjs
+
       - name: Phase 4 - Author demo tests
         if: (inputs.phases == 'all' || inputs.phases == '4') && inputs.app_url != 'skip'
         timeout-minutes: 30
         run: |
           test -d .testmuai/tests || { echo "::error::Complete phase 3 first"; exit 1; }
           find .testmuai/tests -name '*_test.md' -print | sort > available-tests.txt
-          head -n 3 available-tests.txt > selected-tests.txt
+          grep -E -- "$TEST_MATCH" available-tests.txt | head -n 3 > selected-tests.txt
           test -s selected-tests.txt || { echo "::error::No tests to author"; exit 1; }
           failed=0
           while IFS= read -r test_file; do
@@ -197,7 +211,7 @@ jobs:
           test -d .testmuai/tests || { echo "::error::Complete phase 3 first"; exit 1; }
           # Use the same deterministic three-test demo slice as authoring.
           find .testmuai/tests -name '*_test.md' -print | sort > available-tests.txt
-          head -n 3 available-tests.txt > selected-tests.txt
+          grep -E -- "$TEST_MATCH" available-tests.txt | head -n 3 > selected-tests.txt
           tests=()
           while IFS= read -r test_file; do tests+=("$test_file"); done < selected-tests.txt
           [ "${#tests[@]}" -gt 0 ] || { echo "::error::No tests selected"; exit 1; }
