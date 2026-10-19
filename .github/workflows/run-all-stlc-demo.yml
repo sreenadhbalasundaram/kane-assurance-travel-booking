@@ -40,9 +40,9 @@ on:
         required: true
         default: docs/prd-travel-booking-v2.md
       test_match:
-        description: Regex selecting the three-test browser demo slice (use .* for all candidates)
+        description: Regex selecting up to three browser demo tests (use .* for all candidates)
         required: true
-        default: 'invalid-staynest-room|selected-homes|reserve-navigates'
+        default: 'selected-homes|reserve-navigates'
 
 permissions:
   contents: read
